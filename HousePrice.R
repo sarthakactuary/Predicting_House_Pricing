@@ -1,0 +1,2 @@
+setwd("E:\\Project of Coding\\R_Language\\Predicting-House-Pricing")
+HousePrice <- read.csv("data.csv")
