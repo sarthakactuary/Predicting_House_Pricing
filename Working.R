@@ -15,12 +15,6 @@ summary(HousePrice)
 install.packages("dplyr")
 
 library(dplyr)
-HousePrice %>%
-  group_by(view) %>%
-  summarise(median_price = median(price))
-HousePrice %>%
-  group_by(condition) %>%
-  summarise(median_price=median(price))
 
 hist(HousePrice$price,breaks = 50, main = "Price Distribution", xlab="Price",prob = TRUE)
 lines(density(HousePrice$price),col="blue",lwd=2)
@@ -139,15 +133,46 @@ summary(model_lm6)
 #changing some factors
 model_lm7 <- lm(price~bedrooms*bathrooms*sqft_living+floors+bathrooms:yr_built+sqft_lot,data=train_data)
 summary(model_lm7)
+predict_lm7 <- predict(model_lm7,newdata = test_data)
+rmse_lm7 <- sqrt(mean((test_data$price-predict_lm7)^2))
+print(rmse_lm7)
+AIC(model_lm7)
+
+#before go with category variable just check there relation with price
+summary(aov(price~condition,data=HousePrice))
+cor(as.numeric(HousePrice$condition),HousePrice$price,method = "spearman")
+cor(as.numeric(HousePrice$condition),HousePrice$price,method = "kendall")
+kruskal.test(price~condition,data=HousePrice)
+library(dplyr)
+HousePrice %>%
+  group_by(condition) %>%
+  summarise(median_price=median(price))
+HousePrice %>%
+  group_by(view) %>%
+  summarise(median_price = median(price))
 
 
 
 
-#model_lm7 are the best in these models.
+#more changes
+model_lm8 <- lm(price~bedrooms*bathrooms*sqft_living+floors+bathrooms:yr_built+sqft_lot+waterfront+view,data=train_data)
+summary(model_lm8)
+predict_lm8 <- exp(predict(model_lm8,test_data))
+rmse_lm8 <- sqrt(mean((test_data$price-predict_lm8)^2))
+print(rmse_lm8)
+plot(model_lm8,which = 1)
+plot(model_lm8,which = 2)
 
+#model_lm8 are the best in these models.
 
-
-
+#now jump to random-forest
+install.packages("randomForest")
+library(randomForest)
+model_rf1 <- randomForest(price~bedrooms+bathrooms+sqft_living+floors+yr_built+sqft_lot,data=train_data,ntree=1000,mtry=6,importance=TRUE)
+varImp(model_rf1)
+predict_rf1 <- predict(model_rf1,test_data)
+rmse_rf1 <- sqrt(mean((test_data$price-predict_rf1)^2))
+print(rmse_rf1)
 
 install.packages("car")
 library(car)
