@@ -13,6 +13,7 @@ sum(HousePrice$sqft_living)==sum(HousePrice$sqft_above+HousePrice$sqft_basement)
 summary(HousePrice)
 
 install.packages("dplyr")
+
 library(dplyr)
 HousePrice %>%
   group_by(view) %>%
@@ -24,9 +25,9 @@ HousePrice %>%
 hist(HousePrice$price,breaks = 50, main = "Price Distribution", xlab="Price",prob = TRUE)
 lines(density(HousePrice$price),col="blue",lwd=2)
 install.packages("e1071")
+
 library(e1071)
 skewness(HousePrice$price)
-
 boxplot(HousePrice$price, horizontal = TRUE, main="Boxplot of Price")
 
 library(ggplot2)
@@ -80,8 +81,6 @@ HousePrice$city <- factor(HousePrice$city, ordered = TRUE)
 HousePrice$statezip <- factor(HousePrice$statezip, ordered = TRUE)
 
 
-
-
 cor(HousePrice[,sapply(HousePrice,is.numeric)])
 sapply(HousePrice, function(x) length(unique(x)))
 
@@ -96,8 +95,9 @@ sapply(HousePrice,n_distinct)
 HousePrice$price_bins <- cut(HousePrice$price,
                              breaks=quantile(HousePrice$price, probs = seq(0,1,0.1)),
                              include.lowest=TRUE)
-set.seed(200)
+set.seed(123)
 split_index <- createDataPartition(HousePrice$price_bins,p=0.7,list = FALSE)
+
 train_data <- HousePrice[split_index,]
 test_data <- HousePrice[-split_index,]
 summary(train_data)
@@ -109,14 +109,66 @@ test_data <- test_data %>% select(-c(country,Check.sqft_living,price_bins))
 str(train_data)
 
 #start with numeric variable
-rm(model_lm)
-
 model_lm1 <- lm(price~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built,data=train_data)
+summary(model_lm1)
+
+#replace basement and above to living
+model_lm2 <- lm(price~bedrooms+bathrooms+floors+sqft_lot+sqft_living+yr_built,data=train_data)
+summary(model_lm2)
+
+#apply log into model_lm2
+model_lm2_log <- lm(log(price)~bedrooms+bathrooms+floors+sqft_lot+sqft_living+yr_built,data=train_data)
+summary(model_lm2_log)
+
+#removing sq ft_lot terms
+model_lm3 <- lm(price~bedrooms+bathrooms+floors+sqft_living+yr_built,data=train_data)
+summary(model_lm3)
+
+#adding interaction term
+model_lm4 <- lm(price~bedrooms*bathrooms*sqft_living+bathrooms:floors+floors+yr_built+bathrooms:yr_built+floors+sqft_lot+yr_built,data=train_data)
+summary(model_lm4)
+
+#log(price)
+model_lm5 <- lm(log(price)~bedrooms*bathrooms*sqft_living+bathrooms:floors+floors+yr_built+bathrooms:yr_built+floors+sqft_lot+yr_built,data=train_data)
+summary(model_lm5)
+
+#removing sq ft_lot in log model
+model_lm6 <- lm(log(price)~bedrooms*bathrooms*sqft_living+bathrooms:floors+floors+yr_built+bathrooms:yr_built+floors+yr_built,data=train_data)
+summary(model_lm6)
+
+#changing some factors
+model_lm7 <- lm(price~bedrooms*bathrooms*sqft_living+floors+bathrooms:yr_built+sqft_lot,data=train_data)
+summary(model_lm7)
+
+
+
+
+#model_lm7 are the best in these models.
+
+
+
+
+
 install.packages("car")
 library(car)
 vif(model_lm1)
 
-summary(model_lm1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 model_lm2 <- lm(log(price)~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built+view+condition+waterfront,data=train_data)
 summary(model_lm2)
 table(train_data$city)
