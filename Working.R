@@ -1,4 +1,3 @@
-
 HousePrice <- read.csv("data.csv")
 head(HousePrice)
 colnames(HousePrice)
@@ -39,8 +38,8 @@ ggplot(HousePrice, aes(x=price))+
   geom_boxplot(fill="skyblue")+
   labs(title="price",ylab="Price")+
   theme_minimal()
-install.packages("tidyr")
 
+install.packages("tidyr")
 library(tidyr)
 
 data_long <- pivot_longer(
@@ -53,7 +52,7 @@ data_long <- pivot_longer(
 ggplot(data_long, aes(x = Variable, y = Value)) +
   geom_boxplot(fill = "orchid") +
   labs(title = "Boxplots of Multiple Variables",
-       y = "Value") +
+       y = "Value")+
   theme_minimal()
 
 ggplot(HousePrice, aes(x = factor(floors), y = price)) +
@@ -62,6 +61,7 @@ ggplot(HousePrice, aes(x = factor(floors), y = price)) +
        x = "Bedrooms",
        y = "Price") +
   theme_minimal()
+
 ggplot(HousePrice, aes(x=log(price)))+
   geom_histogram(bins=50,fill="darkgreen")+
   labs(title="Distribution of price")+
@@ -72,20 +72,27 @@ library(moments)
 skewness(HousePrice$price)
 skewness(log(HousePrice$price))
 mean(HousePrice$price)>median(HousePrice$price)
+
 #that mean's right skewed
 HousePrice$view <- factor(HousePrice$view, ordered = TRUE)
 HousePrice$condition <- factor(HousePrice$condition, ordered = TRUE)
-HousePrice$waterfront <- factor(HousePrice$waterfront, ordered = TRUE)
+HousePrice$city <- factor(HousePrice$city, ordered = TRUE)
+HousePrice$statezip <- factor(HousePrice$statezip, ordered = TRUE)
+
+
 
 
 cor(HousePrice[,sapply(HousePrice,is.numeric)])
 sapply(HousePrice, function(x) length(unique(x)))
+
+install.packages("caret")
+library(caret)
 nearZeroVar(HousePrice, saveMetrics = TRUE)
 sapply(HousePrice,n_distinct)
 
 
-install.packages("caret")
-library(caret)
+
+
 HousePrice$price_bins <- cut(HousePrice$price,
                              breaks=quantile(HousePrice$price, probs = seq(0,1,0.1)),
                              include.lowest=TRUE)
@@ -93,15 +100,102 @@ set.seed(200)
 split_index <- createDataPartition(HousePrice$price_bins,p=0.7,list = FALSE)
 train_data <- HousePrice[split_index,]
 test_data <- HousePrice[-split_index,]
-
 summary(train_data)
 summary(test_data)
 
-model_lm <- lm(price~.,data=train_data)
+train_data <- train_data %>% select(-c(country,Check.sqft_living,price_bins))
+test_data <- test_data %>% select(-c(country,Check.sqft_living,price_bins))
 
+str(train_data)
 
+#start with numeric variable
+rm(model_lm)
 
+model_lm1 <- lm(price~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built,data=train_data)
+install.packages("car")
+library(car)
+vif(model_lm1)
 
+summary(model_lm1)
+model_lm2 <- lm(log(price)~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built+view+condition+waterfront,data=train_data)
+summary(model_lm2)
+table(train_data$city)
+table(test_data$city)
+model_glm2 <- glm(price~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built+view+condition+waterfront,data=train_data, family = Gamma(link="log"))
+summary(model_glm2)
+AIC(model_lm1,model_lm2)
+AIC(model_glm2)
+plot(model_glm2,which = 1)
+
+pred_lm2_log <- predict(model_lm2,newdata = test_data)
+pred_lm2 <- exp(pred_lm2_log)
+
+library(car)
+vif(model_lm2)
+rmsemodel_lm2rmse_lm2 <- sqrt(mean((test_data$price-pred_lm2)^2))
+rmse_lm2/median(test_data$price)
+
+pred_glm2 <- predict(model_glm2,newdata = test_data)
+rmse_glm2 <- sqrt(mean((test_data$price-pred_glm2)^2))
+rmse_glm2
+
+#using train function predict model random forest
+library(caret)
+
+ctrl <- trainControl(
+  method = "repeatedcv",
+  number=10,
+  repeats = 3,
+  savePredictions = "final")
+
+train_data$city <- factor(train_data$city)
+test_data$city <- factor(test_data$city)
+install.packages("randomForest")
+library(randomForest)
+model_rf <- train(price~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built+view+condition+waterfront+city,
+                  data=train_data,
+                  method="rf",
+                  trControl=ctrl,
+                  tuneGrid=data.frame(mtry=c(4,5,6)),
+                  ntree=500,
+                  importance=TRUE)
+model_rf
+model_rf_vars <- names(model_rf$trainingData)[-1]
+test_data_subset <- test_data[,model_rf_vars]
+colSums(is.na(test_data_subset))
+names(table(train_data$city))==names(table(test_data$city))
+test_data_subset$city <- factor(
+  test_data_subset$city,
+  levels = levels(train_data$city)
+)
+
+pred_rf <- predict(model_rf,newdata = test_data_subset)
+rmse_rf <- sqrt(mean((test_data$price-pred_rf)^2))
+rmse_rf
+rmse_lm2
+sum(is.na(pred_rf))
+varImp(model_rf)
+
+install.packages("doParallel")
+library(doParallel)
+cl <- makePSOCKcluster(4)
+registerDoParallel(cl)
+
+ctrl2 <- trainControl(
+  method = "cv",
+  number=10,
+  savePredictions = "final",
+  allowParallel = TRUE)
+
+model_rf2 <- train(log(price)~bedrooms+bathrooms+sqft_living+sqft_lot+floors+waterfront+view+condition+yr_built,
+                   data=train_data,
+                   method  = "rf",
+                   ntree=1000,
+                   tuneGrid=expand.grid(mtry=c(2,4,6,8,10)),
+                   importance=TRUE)
+
+model_rf2
+stopCluster(cl)
 
 
 
