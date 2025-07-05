@@ -261,7 +261,7 @@ skewness(train_data$price)
 
 
 
-model_lmmodel_lm9model_lm2 <- lm(log(price)~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built+view+condition+waterfront,data=train_data)
+model_lm2 <- lm(log(price)~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built+view+condition+waterfront,data=train_data)
 summary(model_lm2)
 table(train_data$city)
 table(test_data$city)
