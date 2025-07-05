@@ -373,7 +373,7 @@ model_rf2 <- train(log(price)~bedrooms+bathrooms+sqft_living+sqft_lot+floors+wat
                    ntree=1000,
                    tuneGrid=expand.grid(mtry=c(2,4,6,8,10)),
                    importance=TRUE)
-
+library(doParallel)
 model_rf2
 stopCluster(cl)
 
