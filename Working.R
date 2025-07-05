@@ -66,6 +66,8 @@ install.packages("moments")
 library(moments)
 skewness(HousePrice$price)
 skewness(log(HousePrice$price))
+ggplot(HousePrice, aes(x=log(price)))+
+  geom_histogram()
 mean(HousePrice$price)>median(HousePrice$price)
 
 #that mean's right skewed
@@ -168,33 +170,98 @@ plot(model_lm8,which = 2)
 #now jump to random-forest
 install.packages("randomForest")
 library(randomForest)
-model_rf1 <- randomForest(price~bedrooms+bathrooms+sqft_living+floors+yr_built+sqft_lot,data=train_data,ntree=1000,mtry=6,importance=TRUE)
+library(doParallel)
+library(caret)
+cl <- makeCluster(4)
+registerDoParallel(cl)
+names(train_data)
+train_data$view <- factor(train_data$view)
+train_data$condition <- factor(train_data$condition)
+train_data$city <- factor(train_data$city)
+train_data$statezip <- factor(train_data$statezip)
+
+
+model_rf1 <- randomForest(price~bathrooms+sqft_living+floors+yr_built+sqft_lot+waterfront+view+condition+yr_renovated+statezip+city,data=train_data,ntree=600,importance=TRUE,do.trace=100,mtry=4)
 varImp(model_rf1)
 predict_rf1 <- predict(model_rf1,test_data)
 rmse_rf1 <- sqrt(mean((test_data$price-predict_rf1)^2))
 print(rmse_rf1)
+tuneRF(
+  train_data[, c("bathrooms", "sqft_living", "floors", "yr_built", "sqft_lot", "waterfront", "view", "condition", "yr_renovated", "statezip","city")],
+  train_data$price,
+  ntreeTry = 500,
+  stepFactor = 1.5,
+  improve = 0.01
+)
 
+#time to use train function
+library(dplyr)
+names(train_data)
+sapply(train_data, function(x) if (is.factor(x)) nlevels(x))
+train_data_clean <- train_data %>%
+  select(-country, - Check.sqft_living, - price_bins, - date, - street, -city)
+
+
+model_train1_log <- train(log(price) ~ .,
+                      data=train_data_clean,
+                      method="rf",
+                      tuneGrid=data.frame(mtry=c(2,4,6)),
+                      ntree=500,
+                      trControl=trainControl(method="cv",number=5))
+
+model_train1 <- train(price ~ .,
+                      data=train_data_clean,
+                      method="rf",
+                      tuneGrid=data.frame(mtry=c(2,4,6)),
+                      ntree=500,
+                      trControl=trainControl(method="cv",number=5))
+
+pred_train1 <- predict(model_train1,test_data)
+pred_train1_log <- exp(predict(model_train1_log,test_data))
+rmse_train1_log <- sqrt(mean((test_data$price-pred_train1_log)^2))
+rmse_train1 <- sqrt(mean((test_data$price-pred_train1)^2))
+print(rmse_train1_log)
+print(rmse_train1)
+postResample(pred_train1,test_data$price)
+
+model_glm <- glm(price~bedrooms+bathrooms+sqft_living+sqft_lot+floors+yr_built,
+                 data=train_data,
+                 family = tweedie(var.power=1.5,link.power=0))
+summary(model_glm)
+
+pred_glm <- predict(model_glm,test_data,type = "response")
+rmse_glm <- sqrt(mean((test_data$price-pred_glm)^2))
+print(rmse_glm)
 install.packages("car")
 library(car)
-vif(model_lm1)
+
+#making some changes
+train_data$log_price <- log(train_data$price)
+upper_limit <- quantile(train_data$price,0.99)
+train_data$price <- pmin(train_data$price,upper_limit)
+train_data$log_sqft_living <- log(train_data$sqft_living)
+train_data$log_sqft_lot <- log(train_data$sqft_lot)
+train_data$sqft_living <- pmin(train_data$sqft_living,quantile(train_data$sqft_living,0.99))
+train_data$sqft_lot <- pmin(train_data$sqft_lot,quantile(train_data$sqft_lot,0.99))
+
+library(MASS)
+model_glm2 <- glm(price~bedrooms*bathrooms*log_sqft_living+log_sqft_lot+yr_built+factor(condition)+factor(view)+waterfront+floors,
+                  data = train_data,
+                  family = Gamma(link = "log"))
+summary(model_glm2)
+
+model_lm9 <- lm(log_price~bedrooms+bathrooms+log_sqft_living+waterfront+sqft_lot+view+condition+floors+yr_built+factor(city)+factor(statezip),
+                data=train_data)
+summary(model_lm9)
+plot(model_lm9,which=2)
+predict(model_lm9,test_data)
+library(moments)
+skewness(train_data$price)
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-model_lm2 <- lm(log(price)~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built+view+condition+waterfront,data=train_data)
+model_lmmodel_lm9model_lm2 <- lm(log(price)~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basement+yr_built+view+condition+waterfront,data=train_data)
 summary(model_lm2)
 table(train_data$city)
 table(test_data$city)
