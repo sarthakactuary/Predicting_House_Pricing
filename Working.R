@@ -85,9 +85,6 @@ library(caret)
 nearZeroVar(HousePrice, saveMetrics = TRUE)
 sapply(HousePrice,n_distinct)
 
-
-
-
 HousePrice$price_bins <- cut(HousePrice$price,
                              breaks=quantile(HousePrice$price, probs = seq(0,1,0.1)),
                              include.lowest=TRUE)
@@ -98,6 +95,10 @@ train_data <- HousePrice[split_index,]
 test_data <- HousePrice[-split_index,]
 summary(train_data)
 summary(test_data)
+
+
+
+
 
 train_data <- train_data %>% select(-c(country,Check.sqft_living,price_bins))
 test_data <- test_data %>% select(-c(country,Check.sqft_living,price_bins))
@@ -152,24 +153,41 @@ HousePrice %>%
 HousePrice %>%
   group_by(view) %>%
   summarise(median_price = median(price))
-
-
+summary(aov(price~city,data=train_data))
+kruskal.test(price~city, data=train_data)
 
 
 #more changes
-model_lm8 <- lm(price~bedrooms*bathrooms*sqft_living+floors+bathrooms:yr_built+sqft_lot+waterfront+view,data=train_data)
+model_lm8 <- lm(log(price)~bedrooms*bathrooms*sqft_living+floors+bathrooms:yr_built+sqft_lot+waterfront+factor(view)+factor(condition)+factor(statezip),data=train_data)
 summary(model_lm8)
+install.packages("MASS")
+library(MASS)
+stepAIC(model_lm8)
+
 predict_lm8 <- exp(predict(model_lm8,test_data))
 rmse_lm8 <- sqrt(mean((test_data$price-predict_lm8)^2))
 print(rmse_lm8)
 plot(model_lm8,which = 1)
 plot(model_lm8,which = 2)
 
-#model_lm8 are the best in these models.
+#model_lm8 good but it's over fit as you see there was so many predictors.
 
 #now jump to random-forest
+library(dplyr)
+HousePrice %>%
+  group_by(floors) %>%
+  summarise(median_per_view <- median(HousePrice$price))
+
+ggplot(HousePrice, aes(x=factor(floors),y=price))+
+  geom_boxplot(fill="skyblue")+
+  theme_minimal()
+
+
+
 install.packages("randomForest")
+library(caret)
 library(randomForest)
+<<<<<<< HEAD
 library(doParallel)
 library(caret)
 cl <- makeCluster(4)
@@ -183,6 +201,17 @@ train_data$statezip <- factor(train_data$statezip)
 
 model_rf1 <- randomForest(price~bathrooms+sqft_living+floors+yr_built+sqft_lot+waterfront+view+condition+yr_renovated+statezip+city,data=train_data,ntree=600,importance=TRUE,do.trace=100,mtry=4)
 varImp(model_rf1)
+=======
+ctrl <- trainControl(method="cv",number=10,savePredictions = "final")
+library(doParallel)
+cl <- makePSOCKcluster(4)
+registerDoParallel(cl)
+model_rf1 <- train(price~bathrooms+sqft_living+floors+yr_built+sqft_lot+factor(condition)+factor(view)+waterfront+yr_renovated+factor(city)+factor(statezip),data=train_data,ntree=200,importance=TRUE,)
+
+
+
+importance(model_rf1)
+>>>>>>> 3fe01e18af0cac3e5ce402094d6a12b7fe4f94f0
 predict_rf1 <- predict(model_rf1,test_data)
 rmse_rf1 <- sqrt(mean((test_data$price-predict_rf1)^2))
 print(rmse_rf1)
@@ -194,6 +223,7 @@ tuneRF(
   improve = 0.01
 )
 
+<<<<<<< HEAD
 #time to use train function
 library(dplyr)
 names(train_data)
@@ -232,6 +262,12 @@ summary(model_glm)
 pred_glm <- predict(model_glm,test_data,type = "response")
 rmse_glm <- sqrt(mean((test_data$price-pred_glm)^2))
 print(rmse_glm)
+=======
+
+
+
+
+>>>>>>> 3fe01e18af0cac3e5ce402094d6a12b7fe4f94f0
 install.packages("car")
 library(car)
 
