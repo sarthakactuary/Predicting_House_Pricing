@@ -1,4 +1,4 @@
-HousePrice <- read.csv("data.csv")
+HousePrice <- read.csv("original_data.csv")
 head(HousePrice)
 colnames(HousePrice)
 colSums(is.na(HousePrice))
@@ -100,8 +100,8 @@ summary(test_data)
 
 
 
-train_data <- train_data %>% select(-c(country,Check.sqft_living,price_bins))
-test_data <- test_data %>% select(-c(country,Check.sqft_living,price_bins))
+train_data <- train_data %>% select(-c(country,price_bins))
+test_data <- test_data %>% select(-c(country,price_bins))
 
 str(train_data)
 
@@ -110,7 +110,7 @@ model_lm1 <- lm(price~bedrooms+bathrooms+floors+sqft_lot+sqft_above+sqft_basemen
 summary(model_lm1)
 
 #replace basement and above to living
-model_lm2 <- lm(price~bedrooms+bathrooms+floors+sqft_lot+sqft_living+yr_built,data=train_data)
+model_lm2 <- lm(price~bedrooms+bathrooms+floors+sqft_lot+yr_built,data=train_data)
 summary(model_lm2)
 
 #apply log into model_lm2
@@ -187,7 +187,6 @@ ggplot(HousePrice, aes(x=factor(floors),y=price))+
 install.packages("randomForest")
 library(caret)
 library(randomForest)
-<<<<<<< HEAD
 library(doParallel)
 library(caret)
 cl <- makeCluster(4)
@@ -201,7 +200,6 @@ train_data$statezip <- factor(train_data$statezip)
 
 model_rf1 <- randomForest(price~bathrooms+sqft_living+floors+yr_built+sqft_lot+waterfront+view+condition+yr_renovated+statezip+city,data=train_data,ntree=600,importance=TRUE,do.trace=100,mtry=4)
 varImp(model_rf1)
-=======
 ctrl <- trainControl(method="cv",number=10,savePredictions = "final")
 library(doParallel)
 cl <- makePSOCKcluster(4)
@@ -211,7 +209,6 @@ model_rf1 <- train(price~bathrooms+sqft_living+floors+yr_built+sqft_lot+factor(c
 
 
 importance(model_rf1)
->>>>>>> 3fe01e18af0cac3e5ce402094d6a12b7fe4f94f0
 predict_rf1 <- predict(model_rf1,test_data)
 rmse_rf1 <- sqrt(mean((test_data$price-predict_rf1)^2))
 print(rmse_rf1)
@@ -223,7 +220,6 @@ tuneRF(
   improve = 0.01
 )
 
-<<<<<<< HEAD
 #time to use train function
 library(dplyr)
 names(train_data)
@@ -262,12 +258,8 @@ summary(model_glm)
 pred_glm <- predict(model_glm,test_data,type = "response")
 rmse_glm <- sqrt(mean((test_data$price-pred_glm)^2))
 print(rmse_glm)
-=======
 
 
-
-
->>>>>>> 3fe01e18af0cac3e5ce402094d6a12b7fe4f94f0
 install.packages("car")
 library(car)
 
